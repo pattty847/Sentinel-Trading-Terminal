@@ -22,7 +22,6 @@ class GridSceneNode : public QSGTransformNode {
 public:
     GridSceneNode();
     
-    void updateContent(const GridSliceBatch& batch, IRenderStrategy* strategy);
     void updateLayeredContent(const GridSliceBatch& batch, 
                              IRenderStrategy* heatmapStrategy, bool showHeatmap,
                              IRenderStrategy* bubbleStrategy, bool showBubbles,

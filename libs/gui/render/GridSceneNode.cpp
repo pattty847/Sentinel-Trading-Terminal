@@ -20,31 +20,6 @@ GridSceneNode::GridSceneNode() {
     setFlag(QSGNode::OwnedByParent);
 }
 
-
-void GridSceneNode::updateContent(const GridSliceBatch& batch, IRenderStrategy* strategy) {
-    if (!strategy) {
-        qDebug() << " GRIDSCENENODE: No strategy provided!";
-        return;
-    }
-    
-    // reduce verbose logging in hot path
-    
-    // Remove old content node
-    if (m_contentNode) {
-        removeChildNode(m_contentNode);
-        delete m_contentNode;
-        m_contentNode = nullptr;
-    }
-    
-    // Create new content using strategy
-    m_contentNode = strategy->buildNode(batch);
-    if (m_contentNode) {
-        appendChildNode(m_contentNode);
-    } else {
-        // keep silent to avoid spam
-    }
-}
-
 void GridSceneNode::updateLayeredContent(const GridSliceBatch& batch, 
                                         IRenderStrategy* heatmapStrategy, bool showHeatmap,
                                         IRenderStrategy* bubbleStrategy, bool showBubbles,
