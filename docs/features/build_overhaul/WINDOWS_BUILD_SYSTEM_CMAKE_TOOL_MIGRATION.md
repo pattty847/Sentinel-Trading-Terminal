@@ -1,5 +1,3 @@
-# ✅ **PR Summary (Copy/Paste Ready)**
-
 **Title:** *Windows Build System Overhaul + CMake Modernization + Toolchain Migration*
 
 **Summary:**
