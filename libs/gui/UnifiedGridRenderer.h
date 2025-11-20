@@ -113,9 +113,7 @@ private:
     std::atomic<bool> m_materialDirty{false};    // Visual params changed (OCCASIONAL - uniforms/material)
         
     // Rendering data
-    std::vector<CellInstance> m_visibleCells;
-    // Snapshot buffer swapped from DataProcessor on dataUpdated()/updatePaintNode
-    std::shared_ptr<const std::vector<CellInstance>> m_publishedCells;
+    std::shared_ptr<const std::vector<CellInstance>> m_visibleCells;
     std::vector<Trade> m_recentTrades;  // Recent trades for bubble rendering
     std::vector<std::pair<double, double>> m_volumeProfile;
     

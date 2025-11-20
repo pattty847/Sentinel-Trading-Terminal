@@ -2,17 +2,22 @@
     "version": 3,
     "configurePresets": [
         {
-            "name": "windows-mingw",
-            "displayName": "Win - MinGW",
+            "name": "windows-msvc",
+            "displayName": "Win - MSVC",
             "generator": "Ninja",
-            "binaryDir": "${sourceDir}/build-windows-mingw",
+            "binaryDir": "${sourceDir}/build-windows-msvc",
             "cacheVariables": {
-                "CMAKE_C_COMPILER": "C:/msys64/mingw64/bin/gcc.exe",
-                "CMAKE_CXX_COMPILER": "C:/msys64/mingw64/bin/g++.exe",
-                "CMAKE_PREFIX_PATH": "C:/Qt/6.9.1/mingw_64",
-                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+                "CMAKE_C_COMPILER": "cl.exe",
+                "CMAKE_CXX_COMPILER": "cl.exe",
+                "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+                "CMAKE_PREFIX_PATH": "$env{QT_MSVC}",
+        
+                "QT_QMAKE_EXECUTABLE": "$env{QT_MSVC}/bin/qmake.exe"
+            },
+            "environment": {
+                "VCVARS64": "C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/VC/Auxiliary/Build/vcvars64.bat"
             }
-        },
+        },        
         {
             "name": "mac-clang",
             "displayName": "macOS - Clang",
@@ -35,13 +40,21 @@
                 "CMAKE_CXX_COMPILER": "g++",
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
             }
+        },
+        {
+            "name": "Configure preset using toolchain file",
+            "displayName": "Configure preset using toolchain file",
+            "description": "Sets Ninja generator, build and install directory",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_TOOLCHAIN_FILE": "",
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
+            }
         }
     ],
     "buildPresets": [
-        {
-            "name": "windows-mingw",
-            "configurePreset": "windows-mingw"
-        },
         {
             "name": "mac-clang",
             "configurePreset": "mac-clang"
@@ -49,6 +62,10 @@
         {
             "name": "linux-gcc",
             "configurePreset": "linux-gcc"
+        },
+        {
+            "name": "windows-msvc",
+            "configurePreset": "windows-msvc"
         }
     ]
 }

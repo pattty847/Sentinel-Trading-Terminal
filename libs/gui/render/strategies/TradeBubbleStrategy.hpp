@@ -17,7 +17,7 @@ public:
     TradeBubbleStrategy() = default;
     ~TradeBubbleStrategy() override = default;
     
-    QSGNode* buildNode(const GridSliceBatch& batch) override;
+    QSGNode* buildNode(const IDataAccessor* dataAccessor) override;
     QColor calculateColor(double liquidity, bool isBid, double intensity) const override;
     const char* getStrategyName() const override { return "TradeBubbles"; }
     

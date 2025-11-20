@@ -12,6 +12,7 @@ Assumptions: The active render strategy returns a valid node to be added to the 
 #include "GridSceneNode.hpp"
 #include "GridTypes.hpp"
 #include "IRenderStrategy.hpp"
+#include "IDataAccessor.hpp"
 #include <QSGGeometryNode>
 #include <QSGVertexColorMaterial>
 #include <QSGGeometry>
@@ -20,7 +21,7 @@ GridSceneNode::GridSceneNode() {
     setFlag(QSGNode::OwnedByParent);
 }
 
-void GridSceneNode::updateLayeredContent(const GridSliceBatch& batch, 
+void GridSceneNode::updateLayeredContent(const IDataAccessor* dataAccessor, 
                                         IRenderStrategy* heatmapStrategy, bool showHeatmap,
                                         IRenderStrategy* bubbleStrategy, bool showBubbles,
                                         IRenderStrategy* flowStrategy, bool showFlow) {
@@ -31,7 +32,7 @@ void GridSceneNode::updateLayeredContent(const GridSliceBatch& batch,
             removeChildNode(m_heatmapNode);
             delete m_heatmapNode;
         }
-        m_heatmapNode = heatmapStrategy->buildNode(batch);
+        m_heatmapNode = heatmapStrategy->buildNode(dataAccessor);
         if (m_heatmapNode) {
             appendChildNode(m_heatmapNode);
         }
@@ -47,7 +48,7 @@ void GridSceneNode::updateLayeredContent(const GridSliceBatch& batch,
             removeChildNode(m_bubbleNode);
             delete m_bubbleNode;
         }
-        m_bubbleNode = bubbleStrategy->buildNode(batch);
+        m_bubbleNode = bubbleStrategy->buildNode(dataAccessor);
         if (m_bubbleNode) {
             appendChildNode(m_bubbleNode);
         }
@@ -63,7 +64,7 @@ void GridSceneNode::updateLayeredContent(const GridSliceBatch& batch,
             removeChildNode(m_flowNode);
             delete m_flowNode;
         }
-        m_flowNode = flowStrategy->buildNode(batch);
+        m_flowNode = flowStrategy->buildNode(dataAccessor);
         if (m_flowNode) {
             appendChildNode(m_flowNode);
         }
@@ -108,61 +109,16 @@ void GridSceneNode::updateVolumeProfile(const std::vector<std::pair<double, doub
         m_volumeProfileNode = nullptr;
     }
     
-    // Create new volume profile node
     m_volumeProfileNode = createVolumeProfileNode(profile);
+    
     if (m_volumeProfileNode) {
         appendChildNode(m_volumeProfileNode);
+        m_volumeProfileNode->setFlag(QSGNode::OwnedByParent, true);
     }
 }
 
 QSGNode* GridSceneNode::createVolumeProfileNode(const std::vector<std::pair<double, double>>& profile) {
-    if (profile.empty()) return nullptr;
-    
-    auto* node = new QSGGeometryNode;
-    auto* material = new QSGVertexColorMaterial;
-    material->setFlag(QSGMaterial::Blending);
-    node->setMaterial(material);
-    node->setFlag(QSGNode::OwnsMaterial);
-    
-    // Create geometry for volume profile bars (6 vertices per bar)
-    int vertexCount = profile.size() * 6;
-    auto* geometry = new QSGGeometry(QSGGeometry::defaultAttributes_ColoredPoint2D(), vertexCount);
-    geometry->setDrawingMode(QSGGeometry::DrawTriangles);
-    node->setGeometry(geometry);
-    node->setFlag(QSGNode::OwnsGeometry);
-    
-    // Fill vertex buffer with volume profile bars
-    auto* vertices = static_cast<QSGGeometry::ColoredPoint2D*>(geometry->vertexData());
-    int vertexIndex = 0;
-    
-    for (size_t i = 0; i < profile.size(); ++i) {
-        double price = profile[i].first;
-        double volume = profile[i].second;
-        
-        // Simple volume bar rendering (would need proper positioning)
-        float barHeight = 20.0f; // Fixed height for now
-        float barWidth = std::min(100.0f, static_cast<float>(volume * 0.01)); // Scale volume
-        
-        float left = 0.0f;
-        float right = barWidth;
-        float top = price - barHeight * 0.5f;
-        float bottom = price + barHeight * 0.5f;
-        
-        // Gray color for volume profile
-        int gray = 128;
-        int alpha = 180;
-        
-        // Triangle 1: top-left, top-right, bottom-left
-        vertices[vertexIndex++].set(left, top, gray, gray, gray, alpha);
-        vertices[vertexIndex++].set(right, top, gray, gray, gray, alpha);
-        vertices[vertexIndex++].set(left, bottom, gray, gray, gray, alpha);
-        
-        // Triangle 2: top-right, bottom-right, bottom-left
-        vertices[vertexIndex++].set(right, top, gray, gray, gray, alpha);
-        vertices[vertexIndex++].set(right, bottom, gray, gray, gray, alpha);
-        vertices[vertexIndex++].set(left, bottom, gray, gray, gray, alpha);
-    }
-    
-    node->markDirty(QSGNode::DirtyGeometry);
-    return node;
+    // Placeholder for volume profile implementation
+    // In a real implementation, this would create geometry based on the profile data
+    return nullptr;
 }

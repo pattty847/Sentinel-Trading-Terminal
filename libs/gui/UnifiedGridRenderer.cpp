@@ -29,6 +29,7 @@ Assumptions: The render strategies are compatible and can be layered together.
 #include "render/GridSceneNode.hpp" 
 #include "render/DataProcessor.hpp"
 #include "render/IRenderStrategy.hpp"
+#include "render/IDataAccessor.hpp"
 #include "render/strategies/HeatmapStrategy.hpp"
 #include "render/strategies/TradeFlowStrategy.hpp"
 #include "render/strategies/TradeBubbleStrategy.hpp"
@@ -149,10 +150,10 @@ void UnifiedGridRenderer::updateVisibleCells() {
         // Try to grab the latest published cells without blocking the worker
         auto snapshot = m_dataProcessor->getPublishedCellsSnapshot();
         if (snapshot) {
-            m_visibleCells.assign(snapshot->begin(), snapshot->end());
+            m_visibleCells = snapshot; // Zero-copy share
         }
     } else {
-        m_visibleCells.clear();
+        m_visibleCells.reset();
     }
     // Avoid writing viewport state from the render thread; size is handled in geometryChanged
 }
@@ -282,7 +283,7 @@ void UnifiedGridRenderer::clearData() {
     }
     
     // Clear rendering data
-    m_visibleCells.clear();
+    m_visibleCells.reset();
     m_volumeProfile.clear();
     
     m_geometryDirty.store(true);
@@ -468,6 +469,39 @@ namespace {
         }
         return Viewport{0, 0, 0.0, 0.0, w, h};
     }
+
+    // UGR implementation of data accessor (Wraps GridSliceBatch for Phase 1)
+    class UGRDataAccessor : public IDataAccessor {
+    private:
+        const GridSliceBatch& m_batch;
+    
+    public:
+        explicit UGRDataAccessor(const GridSliceBatch& batch) : m_batch(batch) {}
+        
+        std::shared_ptr<const std::vector<CellInstance>> getVisibleCells() const override {
+            return m_batch.cells;
+        }
+        
+        const std::vector<Trade>& getRecentTrades() const override {
+            return m_batch.recentTrades;
+        }
+        
+        Viewport getViewport() const override {
+            return m_batch.viewport;
+        }
+        
+        double getIntensityScale() const override {
+            return m_batch.intensityScale;
+        }
+        
+        double getMinVolumeFilter() const override {
+            return m_batch.minVolumeFilter;
+        }
+        
+        int getMaxCells() const override {
+            return m_batch.maxCells;
+        }
+    };
 }
 
 QSGNode* UnifiedGridRenderer::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData* data) {
@@ -502,9 +536,10 @@ QSGNode* UnifiedGridRenderer::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeD
         Viewport vp = buildViewport(m_viewState.get(), static_cast<double>(width()), static_cast<double>(height()));
         // create a new GridSliceBatch with the visible cells, recent trades, intensity scale, min volume filter, max cells, and viewport
         GridSliceBatch batch{m_visibleCells, m_recentTrades, m_intensityScale, m_minVolumeFilter, m_maxCells, vp};
+        UGRDataAccessor accessor(batch);
 
         QElapsedTimer contentTimer; contentTimer.start();
-        sceneNode->updateLayeredContent(batch,
+        sceneNode->updateLayeredContent(&accessor,
                                        m_heatmapStrategy.get(), m_showHeatmapLayer,
                                        m_tradeBubbleStrategy.get(), m_showTradeBubbleLayer,
                                        m_tradeFlowStrategy.get(), m_showTradeFlowLayer);
@@ -516,7 +551,7 @@ QSGNode* UnifiedGridRenderer::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeD
         }
         sceneNode->setShowVolumeProfile(m_showVolumeProfile);
 
-        cellsCount = m_visibleCells.size();
+        cellsCount = m_visibleCells ? m_visibleCells->size() : 0;
     } else if (m_appendPending.exchange(false)) {
         sLog_RenderN(5, "APPEND PENDING (rebuild from snapshot)");
         QElapsedTimer cacheTimer; cacheTimer.start();
@@ -525,14 +560,15 @@ QSGNode* UnifiedGridRenderer::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeD
 
         Viewport vp2 = buildViewport(m_viewState.get(), static_cast<double>(width()), static_cast<double>(height()));
         GridSliceBatch batch2{m_visibleCells, m_recentTrades, m_intensityScale, m_minVolumeFilter, m_maxCells, vp2};
+        UGRDataAccessor accessor2(batch2);
 
         QElapsedTimer contentTimer2; contentTimer2.start();
-        sceneNode->updateLayeredContent(batch2,
+        sceneNode->updateLayeredContent(&accessor2,
                                        m_heatmapStrategy.get(), m_showHeatmapLayer,
                                        m_tradeBubbleStrategy.get(), m_showTradeBubbleLayer,
                                        m_tradeFlowStrategy.get(), m_showTradeFlowLayer);
         contentUs = contentTimer2.nsecsElapsed() / 1000;
-        cellsCount = m_visibleCells.size();
+        cellsCount = m_visibleCells ? m_visibleCells->size() : 0;
     }
 
     if (m_materialDirty.exchange(false)) {
@@ -540,7 +576,9 @@ QSGNode* UnifiedGridRenderer::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeD
         updateVisibleCells();
         Viewport vp3 = buildViewport(m_viewState.get(), static_cast<double>(width()), static_cast<double>(height()));
         GridSliceBatch batch3{m_visibleCells, m_recentTrades, m_intensityScale, m_minVolumeFilter, m_maxCells, vp3};
-        sceneNode->updateLayeredContent(batch3,
+        UGRDataAccessor accessor3(batch3);
+
+        sceneNode->updateLayeredContent(&accessor3,
                                        m_heatmapStrategy.get(), m_showHeatmapLayer,
                                        m_tradeBubbleStrategy.get(), m_showTradeBubbleLayer,
                                        m_tradeFlowStrategy.get(), m_showTradeFlowLayer);
@@ -563,9 +601,9 @@ QSGNode* UnifiedGridRenderer::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeD
                        << "cells=" << cellsCount);
 
     // DIAGNOSTIC: Check if we have cells but they're not distributed properly
-    if (cellsCount > 0 && cellsCount % 100 == 0) {
+    if (cellsCount > 0 && cellsCount % 100 == 0 && m_visibleCells) {
         std::map<int64_t, size_t> cellsPerTimeSlice;
-        for (const auto& cell : m_visibleCells) {
+        for (const auto& cell : *m_visibleCells) {
             cellsPerTimeSlice[cell.timeStart_ms]++;
         }
         sLog_Debug("CELL DISTRIBUTION: " << cellsPerTimeSlice.size() << " time slices, "
@@ -600,7 +638,7 @@ QPointF UnifiedGridRenderer::getPanVisualOffset() const { return m_viewState ? m
 
 // ===== QML DEBUG API =====
 // Debug and monitoring methods for QML
-QString UnifiedGridRenderer::getGridDebugInfo() const { return QString("Cells:%1 Size:%2x%3").arg(m_visibleCells.size()).arg(width()).arg(height()); }
+QString UnifiedGridRenderer::getGridDebugInfo() const { return QString("Cells:%1 Size:%2x%3").arg(m_visibleCells ? m_visibleCells->size() : 0).arg(width()).arg(height()); }
 QString UnifiedGridRenderer::getDetailedGridDebug() const { return getGridDebugInfo() + QString("DataProcessor:%1").arg(m_dataProcessor ? "YES" : "NO"); }
 QString UnifiedGridRenderer::getPerformanceStats() const { return "N/A (SentinelMonitor removed)"; }
 double UnifiedGridRenderer::getCurrentFPS() const { return 0.0; }

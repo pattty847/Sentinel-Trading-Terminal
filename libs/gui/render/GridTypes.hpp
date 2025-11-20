@@ -16,17 +16,12 @@ struct CellInstance {
     double priceMax = 0.0;
 
     // Display/data attributes
-    double liquidity = 0.0;   // aggregated volume/liquidity
+    float liquidity = 0.0f;   // aggregated volume/liquidity
     bool isBid = true;        // side
-    double intensity = 0.0;   // normalized [0,1]
-    QColor color;             // per-cell color
-
-    // Optional: for future text overlays/annotation
-    int snapshotCount = 0;
 };
 
 struct GridSliceBatch {
-    std::vector<CellInstance> cells;
+    std::shared_ptr<const std::vector<CellInstance>> cells;
     std::vector<Trade> recentTrades;  // Raw trade data for bubble rendering
     double intensityScale = 1.0;
     double minVolumeFilter = 0.0;

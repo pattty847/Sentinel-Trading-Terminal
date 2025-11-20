@@ -11,6 +11,7 @@ Assumptions: Implementations will be managed and invoked by UnifiedGridRenderer.
 */
 #pragma once
 #include <QSGNode>
+#include "IDataAccessor.hpp"
 
 class QSGGeometryNode;
 
@@ -22,7 +23,7 @@ class IRenderStrategy {
 public:
     virtual ~IRenderStrategy() = default;
     
-    virtual QSGNode* buildNode(const GridSliceBatch& batch) = 0;
+    virtual QSGNode* buildNode(const IDataAccessor* dataAccessor) = 0;
     virtual QColor calculateColor(double liquidity, bool isBid, double intensity) const = 0;
     virtual const char* getStrategyName() const = 0;
     
